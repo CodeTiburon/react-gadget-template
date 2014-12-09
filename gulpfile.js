@@ -6,30 +6,22 @@ var stylus = require('gulp-stylus');
 var concat = require('gulp-concat');
 var globalShim = require('browserify-global-shim');
 var shell = require('gulp-shell');
-var jshint = require('gulp-jshint');
-var react = require('gulp-react');
 var clean = require('gulp-clean');
 var fs = require('fs-extra');
+var watch = require('gulp-watch');
 
+var dist = './dist';
 // We store the settings in package.json to
 // keep this file generic
 var pkg = fs.readJsonSync('./package.json');
 var args = process.argv.slice(2);
 
 gulp.task('cleanup-dist', function() {
-  return gulp.src('dist', {read: false})
+  return gulp.src(dist, {read: false})
     .pipe(clean());
 });
 
-gulp.task('jshint', function() {
-  return gulp.src([
-      'js/**/*.{js,jsx}',
-      'tests/**/*.{js,jsx}'
-    ])
-    .pipe(react())
-    .pipe(jshint())
-    .pipe(jshint.reporter('default'));
-});
+gulp.task('lint', shell.task(['./scripts/lint.sh']));
 
 gulp.task('bundle', ['cleanup-dist'], function(){
   var b = browserify({
@@ -47,10 +39,10 @@ gulp.task('bundle', ['cleanup-dist'], function(){
 
   return b.bundle()
     .pipe(source('app.js'))
-    .pipe(gulp.dest('dist'));
+    .pipe(gulp.dest(dist));
 });
 
-gulp.task('css', ['cleanup-dist'], function() {
+gulp.task('css', function() {
   return gulp.src([
       'bower_components/normalize-css/normalize.css',
       'bower_components/versal-gadget-api/versal-gadget-theme.css',
@@ -58,7 +50,7 @@ gulp.task('css', ['cleanup-dist'], function() {
     ])
     .pipe(stylus())
     .pipe(concat('app.css'))
-    .pipe(gulp.dest('./dist'));
+    .pipe(gulp.dest(dist));
 });
 
 gulp.task('run-demos', shell.task([
@@ -76,9 +68,15 @@ gulp.task('run-tests', shell.task([
   './node_modules/.bin/jest'
 ]));
 
-gulp.task('base', ['jshint', 'bundle', 'css']);
+gulp.task('watch', function () {
+  gulp.watch('./css/**/*.styl', ['css']);
+  gulp.watch('./js/**/*.jsx', ['bundle']);
+});
+
+gulp.task('base', ['lint', 'cleanup-dist', 'bundle', 'css']);
 gulp.task('demo', ['base', 'run-demos']);
 gulp.task('test', ['base', 'run-tests']);
 gulp.task('screenshots', ['demo', 'copy-screenshots']);
-
+gulp.task('preview', shell.task(['versal preview ./']));
+gulp.task('develop', ['watch', 'preview']);
 gulp.task('default', ['base']);
